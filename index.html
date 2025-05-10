@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Content Analyzer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 50px auto;
+      max-width: 700px;
+      background: #f4f4f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #444;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      resize: none;
+    }
+    .api-response {
+     background-color: #f9f9f9;
+     border-left: 4px solid #007bfc;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 5px;
+    }
+
+    .api-response h2 {
+      margin-top: 0;
+    }
+
+    .api-response p {
+      margin: 5px 0;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #007bfc;
+      color: #fff;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005fcc;
+    }
+    .result {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .label {
+      font-weight: bold;
+    }
+    
+    /* Loading Banner Animation Styles */
+    .loader-container {
+      width: 100%;
+      height: 80px;
+      margin: 20px 0;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+      display: none; /* Initially hidden */
+    }
+    
+    .loader-wave {
+      height: 100%;
+      width: 100%;
+      position: relative;
+      background: linear-gradient(90deg, transparent, rgba(0, 123, 252, 0.2), transparent);
+      animation: wave 1.6s infinite ease-in-out;
+    }
+    
+    .loader-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 600;
+      color: #555;
+      display: flex;
+      align-items: center;
+    }
+    
+    .dot-animation {
+      display: inline-block;
+      margin-left: 4px;
+      width: 40px;
+    }
+    
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin: 0 2px;
+      background-color: #007bfc;
+      border-radius: 50%;
+      opacity: 0;
+      animation: dots 1.4s infinite ease-in-out;
+    }
+    
+    .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    
+    .ai-icon {
+      font-size: 20px;
+      margin-right: 10px;
+      color: #007bfc;
+    }
+    
+    @keyframes wave {
+      0% {
+        background-position: -300px 0;
+      }
+      100% {
+        background-position: 300px 0;
+      }
+    }
+    
+    @keyframes dots {
+      0%, 100% {
+        opacity: 0;
+        transform: scale(0.7);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Smart Content Analyzer</h1>
+
+  <textarea id="textInput" placeholder="Paste your content here..."></textarea>
+  <button onclick="analyzeContent()">Analyze</button>
+  
+  <!-- Loading Banner -->
+  <div class="loader-container" id="loadingBanner">
+    <div class="loader-wave"></div>
+    <div class="loader-text">
+      <span class="ai-icon">⚙️</span>
+      <span>Analyzing your content</span>
+      <span class="dot-animation">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="result" id="result" style="display:none;">
+    <p><span class="label">AI Response:</span></p>
+    <div class="api-response" id="aiResponse">
+      <h2>Analysis Result</h2>
+      <p><strong>Sentiment:</strong> Positive</p>
+      <p><strong>Summary:</strong> This text expresses a positive outlook.</p>
+      <p><strong>Keywords:</strong> smart, content, positive, analysis</p>
+    </div>
+  </div>
+
+  <script>
+    Api_Url="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBL1VcWixFrps28yJeOM1fKAEwymqmwsgA"
+
+    let user = {
+      message: null,
+      file: {
+        mime_type: null,
+        data: null
+      }
+    };
+
+    async function generateResponse() {
+      const text = document.getElementById('aiResponse');
+      const chatContainer = document.getElementById('result');
+      const loadingBanner = document.getElementById('loadingBanner');
+      
+      // Show loading banner
+      loadingBanner.style.display = 'block';
+      chatContainer.style.display = 'none';
+
+      const RequestOption = {
+        method: "POST",
+        headers: {'Content-Type' : 'application/json'},
+        body: JSON.stringify({
+          "contents": [
+            {
+              "parts": [
+                { "text": user.message },
+                ...(user.file.data ? [{ "inline_data": user.file }] : [])
+              ]
+            }
+          ]
+        })
+      };
+
+      try {
+        let response = await fetch(Api_Url, RequestOption);
+        let data = await response.json();
+        let apiResponse = data.candidates[0].content.parts[0].text
+        .replace(/\*\*(.*?)\*\*/g, "$1") 
+        .replace(/\n/g, "<br>")     
+        .trim();
+        
+        text.innerHTML = apiResponse;
+        
+        loadingBanner.style.display = 'none';
+        chatContainer.style.display = 'block';
+      } catch(error) {
+        console.log(error);
+        
+        loadingBanner.style.display = 'none';
+        text.innerHTML = "<p>Sorry, there was an error processing your request. Please try again.</p>";
+        chatContainer.style.display = 'block';
+      }
+    }
+
+    function analyzeContent() {
+      const input = document.getElementById('textInput').value;
+      if (input.trim() === '') {
+        alert('Please enter some content to analyze.');
+        return;
+      }
+      user.message = input;
+      generateResponse();
+    }
+  </script>
+
+</body>
+</html>
